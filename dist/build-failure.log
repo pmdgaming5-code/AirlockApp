@@ -1,0 +1,43 @@
+AirLock build failed.
+Commit: 9f14975baa6dfe094dba148a9d7ac2d071551ed3
+Runner: Linux
+Java:
+openjdk version "17.0.20" 2026-07-21
+OpenJDK Runtime Environment Temurin-17.0.20+8 (build 17.0.20+8)
+OpenJDK 64-Bit Server VM Temurin-17.0.20+8 (build 17.0.20+8, mixed mode, sharing)
+Gradle:
+
+------------------------------------------------------------
+Gradle 8.9
+------------------------------------------------------------
+
+Build time:    2024-07-11 14:37:41 UTC
+Revision:      d536ef36a19186ccc596d8817123e5445f30fef8
+
+Kotlin:        1.9.23
+Groovy:        3.0.21
+Ant:           Apache Ant(TM) version 1.10.13 compiled on January 4 2023
+Launcher JVM:  17.0.20 (Eclipse Adoptium 17.0.20+8)
+Daemon JVM:    /usr/lib/jvm/temurin-17-jdk-amd64 (no JDK specified, using current Java home)
+OS:            Linux 6.17.0-1022-azure amd64
+
+SDK platforms:
+total 72
+drwxrwxrwx 18 root root 4096 Aug 10 21:44 .
+drwxrwxrwx 13 root root 4096 Aug 19 07:08 ..
+drwxrwxrwx  6 root root 4096 Aug 10 21:44 android-34
+drwxrwxrwx  6 root root 4096 Aug 10 21:44 android-34-ext10
+drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-34-ext11
+drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-34-ext12
+drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-34-ext8
+drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-35
+drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-35-ext14
+drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-35-ext15
+drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-36
+drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-36-ext18
+drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-36-ext19
+drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-36.1
+drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-37.0
+drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-37.1
+drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-37.2-beta1
+drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-37.2-beta2
