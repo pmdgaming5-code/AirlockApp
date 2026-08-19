@@ -1,5 +1,5 @@
 AirLock build failed.
-Commit: 3d5933d621a33dae1e39f9fa00832b4782f09ba8
+Commit: 5870b97e7276246cbbb788289c06b550322fa3cb
 Runner: Linux
 Java:
 openjdk version "17.0.20" 2026-07-21
@@ -22,22 +22,23 @@ Daemon JVM:    /usr/lib/jvm/temurin-17-jdk-amd64 (no JDK specified, using curren
 OS:            Linux 6.17.0-1022-azure amd64
 
 SDK platforms:
-total 72
-drwxrwxrwx 18 root root 4096 Aug 10 21:44 .
-drwxrwxrwx 13 root root 4096 Aug 19 07:17 ..
-drwxrwxrwx  6 root root 4096 Aug 10 21:44 android-34
-drwxrwxrwx  6 root root 4096 Aug 10 21:44 android-34-ext10
-drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-34-ext11
-drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-34-ext12
-drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-34-ext8
-drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-35
-drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-35-ext14
-drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-35-ext15
-drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-36
-drwxrwxrwx  6 root root 4096 Aug 10 21:43 android-36-ext18
-drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-36-ext19
-drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-36.1
-drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-37.0
-drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-37.1
-drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-37.2-beta1
-drwxrwxrwx  6 root root 4096 Aug 10 21:42 android-37.2-beta2
+total 76
+drwxrwxrwx 19 root root 4096 Aug 16 21:32 .
+drwxrwxrwx 13 root root 4096 Aug 19 07:19 ..
+drwxrwxrwx  6 root root 4096 Aug 16 21:32 android-34
+drwxrwxrwx  6 root root 4096 Aug 16 21:32 android-34-ext10
+drwxrwxrwx  6 root root 4096 Aug 16 21:32 android-34-ext11
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-34-ext12
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-34-ext8
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-35
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-35-ext14
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-35-ext15
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-36
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-36-ext18
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-36-ext19
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-36.1
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-37.0
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-37.1
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-37.2-beta1
+drwxrwxrwx  6 root root 4096 Aug 16 21:31 android-37.2-beta2
+drwxrwxrwx  6 root root 4096 Aug 16 21:30 android-37.2-beta3
