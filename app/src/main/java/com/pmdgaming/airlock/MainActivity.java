@@ -1,8 +1,7 @@
 package com.pmdgaming.airlock;
 
-import android.app.ActivityManager;
+import android.app.AppOpsManager;
 import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -10,7 +9,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.Gravity;
@@ -18,14 +16,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.Filter;
 import android.widget.Filterable;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 
@@ -36,7 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class MainActivity extends Activity {
+public class MainActivity extends android.app.Activity {
     public static final String PREFS = "airlock_prefs";
     public static final String KEY_PROTECTED = "protected_packages";
 
@@ -44,7 +40,6 @@ public class MainActivity extends Activity {
     private AppAdapter adapter;
     private SharedPreferences prefs;
     private TextView status;
-    private EditText search;
 
     private int dp(float value) {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
@@ -78,9 +73,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         refreshStatus();
-        if (!getProtectedPackages().isEmpty()) {
-            MonitorService.start(this);
-        }
+        if (!getProtectedPackages().isEmpty()) MonitorService.start(this);
     }
 
     private void buildUi() {
@@ -113,14 +106,14 @@ public class MainActivity extends Activity {
         actions.addView(usage, new LinearLayout.LayoutParams(0, dp(48), 1));
 
         Button admin = new Button(this);
-        admin.setText("Yönetici durumu");
-        admin.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_DEVICE_ADMIN_SETTINGS)));
+        admin.setText("Cihaz yöneticisi");
+        admin.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_SECURITY_SETTINGS)));
         LinearLayout.LayoutParams adminLp = new LinearLayout.LayoutParams(0, dp(48), 1);
         adminLp.setMargins(dp(8), 0, 0, 0);
         actions.addView(admin, adminLp);
         root.addView(actions);
 
-        search = new EditText(this);
+        EditText search = new EditText(this);
         search.setSingleLine(true);
         search.setHint("Uygulama ara…");
         search.setTextColor(Color.WHITE);
@@ -189,10 +182,10 @@ public class MainActivity extends Activity {
 
     private boolean hasUsageAccess() {
         try {
-            android.app.usage.UsageStatsManager usm = (android.app.usage.UsageStatsManager) getSystemService(USAGE_STATS_SERVICE);
-            long now = System.currentTimeMillis();
-            List<android.app.usage.UsageStats> stats = usm.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, now - 10_000L, now);
-            return stats != null && !stats.isEmpty();
+            AppOpsManager appOps = (AppOpsManager) getSystemService(APP_OPS_SERVICE);
+            int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(), getPackageName());
+            return mode == AppOpsManager.MODE_ALLOWED;
         } catch (Exception e) {
             return false;
         }
@@ -222,7 +215,10 @@ public class MainActivity extends Activity {
         final android.graphics.drawable.Drawable icon;
         final boolean system;
         AppEntry(String packageName, String label, android.graphics.drawable.Drawable icon, boolean system) {
-            this.packageName = packageName; this.label = label; this.icon = icon; this.system = system;
+            this.packageName = packageName;
+            this.label = label;
+            this.icon = icon;
+            this.system = system;
         }
     }
 
@@ -236,7 +232,10 @@ public class MainActivity extends Activity {
                 for (AppEntry a : source) {
                     if (q.isEmpty() || a.label.toLowerCase().contains(q) || a.packageName.toLowerCase().contains(q)) result.add(a);
                 }
-                FilterResults fr = new FilterResults(); fr.values = result; fr.count = result.size(); return fr;
+                FilterResults fr = new FilterResults();
+                fr.values = result;
+                fr.count = result.size();
+                return fr;
             }
             @Override protected void publishResults(CharSequence constraint, FilterResults results) {
                 filtered.clear();
@@ -290,10 +289,6 @@ public class MainActivity extends Activity {
             sw.setOnCheckedChangeListener(null);
             sw.setOnCheckedChangeListener((buttonView, isChecked) -> setProtected(app.packageName, isChecked));
             row.addView(sw, new LinearLayout.LayoutParams(dp(94), dp(58)));
-
-            if (position < getCount() - 1) {
-                row.setPadding(dp(12), dp(8), dp(8), dp(12));
-            }
             return row;
         }
     }
