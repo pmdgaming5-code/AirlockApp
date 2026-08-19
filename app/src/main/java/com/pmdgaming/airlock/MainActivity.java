@@ -16,6 +16,8 @@ import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityManager;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
@@ -182,11 +184,10 @@ public class MainActivity extends android.app.Activity {
 
     private boolean isAccessibilityEnabled() {
         try {
-            android.accessibilityservice.AccessibilityManager manager =
-                    (android.accessibilityservice.AccessibilityManager) getSystemService(ACCESSIBILITY_SERVICE);
+            AccessibilityManager manager = (AccessibilityManager) getSystemService(ACCESSIBILITY_SERVICE);
             if (manager == null) return false;
-            for (android.accessibilityservice.AccessibilityServiceInfo info :
-                    manager.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK)) {
+            for (AccessibilityServiceInfo info :
+                    manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)) {
                 if (info.getResolveInfo() != null
                         && info.getResolveInfo().serviceInfo != null
                         && getPackageName().equals(info.getResolveInfo().serviceInfo.packageName)) {
