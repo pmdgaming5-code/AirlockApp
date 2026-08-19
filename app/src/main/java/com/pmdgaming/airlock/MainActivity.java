@@ -1,21 +1,24 @@
 package com.pmdgaming.airlock;
 
-import android.app.AppOpsManager;
-import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.Filter;
 import android.widget.Filterable;
@@ -30,6 +33,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public class MainActivity extends android.app.Activity {
@@ -73,7 +77,6 @@ public class MainActivity extends android.app.Activity {
     protected void onResume() {
         super.onResume();
         refreshStatus();
-        if (!getProtectedPackages().isEmpty()) MonitorService.start(this);
     }
 
     private void buildUi() {
@@ -83,10 +86,10 @@ public class MainActivity extends android.app.Activity {
         root.setBackgroundColor(Color.rgb(10, 12, 18));
 
         TextView title = text("✈ AirLock", 27);
-        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         root.addView(title, new LinearLayout.LayoutParams(-1, dp(44)));
 
-        TextView subtitle = text("Belirlediğin uygulamalar açıkken uçak modu otomatik olarak açılır.", 14);
+        TextView subtitle = text("Seçtiğin uygulama öne geldiğinde uçak modu açılır; başka uygulamaya geçtiğinde önceki duruma döner.", 14);
         subtitle.setTextColor(Color.rgb(190, 196, 210));
         subtitle.setPadding(0, 0, 0, dp(10));
         root.addView(subtitle);
@@ -94,23 +97,24 @@ public class MainActivity extends android.app.Activity {
         status = text("Kontrol ediliyor…", 13);
         status.setPadding(dp(12), dp(9), dp(12), dp(9));
         status.setBackground(background(Color.rgb(29, 34, 46), 12));
-        root.addView(status, new LinearLayout.LayoutParams(-1, dp(42)));
+        root.addView(status, new LinearLayout.LayoutParams(-1, dp(48)));
 
         LinearLayout actions = new LinearLayout(this);
         actions.setGravity(Gravity.CENTER_VERTICAL);
         actions.setPadding(0, dp(10), 0, dp(8));
 
-        Button usage = new Button(this);
-        usage.setText("Kullanım erişimi");
-        usage.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
-        actions.addView(usage, new LinearLayout.LayoutParams(0, dp(48), 1));
+        Button accessibility = new Button(this);
+        accessibility.setText("Erişilebilirliği aç");
+        accessibility.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
+        actions.addView(accessibility, new LinearLayout.LayoutParams(0, dp(48), 1));
 
-        Button admin = new Button(this);
-        admin.setText("Cihaz yöneticisi");
-        admin.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_SECURITY_SETTINGS)));
-        LinearLayout.LayoutParams adminLp = new LinearLayout.LayoutParams(0, dp(48), 1);
-        adminLp.setMargins(dp(8), 0, 0, 0);
-        actions.addView(admin, adminLp);
+        Button appSettings = new Button(this);
+        appSettings.setText("AirLock ayarları");
+        appSettings.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.parse("package:" + getPackageName()))));
+        LinearLayout.LayoutParams settingsLp = new LinearLayout.LayoutParams(0, dp(48), 1);
+        settingsLp.setMargins(dp(8), 0, 0, 0);
+        actions.addView(appSettings, settingsLp);
         root.addView(actions);
 
         EditText search = new EditText(this);
@@ -129,10 +133,10 @@ public class MainActivity extends android.app.Activity {
         list.setAdapter(adapter);
         root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        search.addTextChangedListener(new android.text.TextWatcher() {
+        search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { adapter.getFilter().filter(s); }
-            @Override public void afterTextChanged(android.text.Editable s) {}
+            @Override public void afterTextChanged(Editable s) {}
         });
 
         setContentView(root);
@@ -145,13 +149,15 @@ public class MainActivity extends android.app.Activity {
         for (ApplicationInfo info : installed) {
             if (info.packageName.equals(getPackageName())) continue;
             CharSequence label;
+            Drawable icon;
             try {
                 label = pm.getApplicationLabel(info);
+                icon = pm.getApplicationIcon(info);
             } catch (Exception e) {
                 continue;
             }
             if (label == null || label.toString().trim().isEmpty()) continue;
-            allApps.add(new AppEntry(info.packageName, label.toString(), pm.getApplicationIcon(info),
+            allApps.add(new AppEntry(info.packageName, label.toString(), icon,
                     (info.flags & ApplicationInfo.FLAG_SYSTEM) != 0));
         }
         Collections.sort(allApps, new Comparator<AppEntry>() {
@@ -171,50 +177,47 @@ public class MainActivity extends android.app.Activity {
         Set<String> next = getProtectedPackages();
         if (enabled) next.add(packageName); else next.remove(packageName);
         prefs.edit().putStringSet(KEY_PROTECTED, next).apply();
-        if (next.isEmpty()) MonitorService.stop(this); else MonitorService.start(this);
         refreshStatus();
     }
 
-    private boolean isDeviceOwner() {
-        DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
-        return dpm != null && dpm.isDeviceOwnerApp(getPackageName());
-    }
-
-    private boolean hasUsageAccess() {
+    private boolean isAccessibilityEnabled() {
         try {
-            AppOpsManager appOps = (AppOpsManager) getSystemService(APP_OPS_SERVICE);
-            int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
-                    android.os.Process.myUid(), getPackageName());
-            return mode == AppOpsManager.MODE_ALLOWED;
-        } catch (Exception e) {
-            return false;
+            android.accessibilityservice.AccessibilityManager manager =
+                    (android.accessibilityservice.AccessibilityManager) getSystemService(ACCESSIBILITY_SERVICE);
+            if (manager == null) return false;
+            for (android.accessibilityservice.AccessibilityServiceInfo info :
+                    manager.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK)) {
+                if (info.getResolveInfo() != null
+                        && info.getResolveInfo().serviceInfo != null
+                        && getPackageName().equals(info.getResolveInfo().serviceInfo.packageName)) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {
         }
+        return false;
     }
 
     private void refreshStatus() {
         if (status == null) return;
-        boolean owner = isDeviceOwner();
-        boolean usage = hasUsageAccess();
-        String text;
-        if (!owner) {
-            text = "⚠ Device Owner gerekli — uçak modunu değiştirme yetkisi yok.";
-            status.setTextColor(Color.rgb(255, 205, 110));
-        } else if (!usage) {
-            text = "⚠ Usage Access gerekli — uygulamanın hangi uygulamada olduğunu göremiyor.";
+        boolean enabled = isAccessibilityEnabled();
+        int count = getProtectedPackages().size();
+        if (!enabled) {
+            status.setText("⚠ Erişilebilirlik hizmetini aç • " + count + " uygulama seçili");
             status.setTextColor(Color.rgb(255, 205, 110));
         } else {
-            text = "✓ AirLock hazır • " + getProtectedPackages().size() + " uygulama korunuyor";
+            status.setText("✓ AirLock aktif • " + count + " uygulama korunuyor");
             status.setTextColor(Color.rgb(130, 235, 170));
         }
-        status.setText(text);
     }
 
     public static class AppEntry {
         final String packageName;
         final String label;
-        final android.graphics.drawable.Drawable icon;
+        final Drawable icon;
         final boolean system;
-        AppEntry(String packageName, String label, android.graphics.drawable.Drawable icon, boolean system) {
+
+        AppEntry(String packageName, String label, Drawable icon, boolean system) {
             this.packageName = packageName;
             this.label = label;
             this.icon = icon;
@@ -227,20 +230,26 @@ public class MainActivity extends android.app.Activity {
         private final List<AppEntry> filtered;
         private final Filter filter = new Filter() {
             @Override protected FilterResults performFiltering(CharSequence constraint) {
-                String q = constraint == null ? "" : constraint.toString().trim().toLowerCase();
+                String q = constraint == null ? "" : constraint.toString().trim().toLowerCase(Locale.ROOT);
                 List<AppEntry> result = new ArrayList<>();
                 for (AppEntry a : source) {
-                    if (q.isEmpty() || a.label.toLowerCase().contains(q) || a.packageName.toLowerCase().contains(q)) result.add(a);
+                    if (q.isEmpty() || a.label.toLowerCase(Locale.ROOT).contains(q)
+                            || a.packageName.toLowerCase(Locale.ROOT).contains(q)) {
+                        result.add(a);
+                    }
                 }
                 FilterResults fr = new FilterResults();
                 fr.values = result;
                 fr.count = result.size();
                 return fr;
             }
+
             @Override protected void publishResults(CharSequence constraint, FilterResults results) {
                 filtered.clear();
-                //noinspection unchecked
-                filtered.addAll((List<AppEntry>) results.values);
+                if (results != null && results.values instanceof List) {
+                    //noinspection unchecked
+                    filtered.addAll((List<AppEntry>) results.values);
+                }
                 notifyDataSetChanged();
             }
         };
@@ -273,7 +282,7 @@ public class MainActivity extends android.app.Activity {
             names.setOrientation(LinearLayout.VERTICAL);
             names.setGravity(Gravity.CENTER_VERTICAL);
             TextView name = text(app.label, 16);
-            name.setTypeface(null, android.graphics.Typeface.BOLD);
+            name.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             names.addView(name);
             TextView pkg = text(app.packageName, 11);
             pkg.setTextColor(Color.rgb(135, 143, 160));
@@ -287,7 +296,8 @@ public class MainActivity extends android.app.Activity {
             sw.setGravity(Gravity.CENTER);
             sw.setChecked(getProtectedPackages().contains(app.packageName));
             sw.setOnCheckedChangeListener(null);
-            sw.setOnCheckedChangeListener((buttonView, isChecked) -> setProtected(app.packageName, isChecked));
+            sw.setOnCheckedChangeListener((CompoundButton buttonView, boolean isChecked) ->
+                    setProtected(app.packageName, isChecked));
             row.addView(sw, new LinearLayout.LayoutParams(dp(94), dp(58)));
             return row;
         }
