@@ -70,3 +70,24 @@ jobs:
             git commit -m "chore: publish verified AirLock APK [skip ci]"
             git push
           fi
+
+      - name: Publish build failure diagnostics
+        if: failure() && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p dist
+          {
+            echo "AirLock build failed."
+            echo "Commit: $GITHUB_SHA"
+            echo "Runner: $RUNNER_OS"
+            echo "Java:"
+            java -version 2>&1 || true
+            echo "Gradle:"
+            gradle --version 2>&1 || true
+            echo "SDK platforms:"
+            ls -la "$ANDROID_SDK_ROOT/platforms" 2>&1 || true
+          } > dist/build-failure.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/build-failure.log
+          git commit -m "chore: record build failure [skip ci]" || true
+          git push || true
