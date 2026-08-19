@@ -7,7 +7,6 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Rect;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -18,13 +17,15 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AirLockAccessibilityService extends AccessibilityService {
     private static final String CHANNEL_ID = "airlock_accessibility";
     private static final int NOTIFICATION_ID = 4251;
-    private static final long TOGGLE_DELAY_MS = 250L;
-    private static final int MAX_TOGGLE_ATTEMPTS = 4;
+    private static final long TOGGLE_DELAY_MS = 350L;
+    private static final int MAX_TOGGLE_ATTEMPTS = 6;
+    private static final String SYSTEM_UI = "com.android.systemui";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean automationRunning = new AtomicBoolean(false);
@@ -39,7 +40,8 @@ public class AirLockAccessibilityService extends AccessibilityService {
         AccessibilityServiceInfo info = getServiceInfo();
         if (info == null) info = new AccessibilityServiceInfo();
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-                | AccessibilityEvent.TYPE_WINDOWS_CHANGED;
+                | AccessibilityEvent.TYPE_WINDOWS_CHANGED
+                | AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
         info.notificationTimeout = 75;
         info.flags |= AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;
@@ -53,7 +55,15 @@ public class AirLockAccessibilityService extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (event == null || event.getPackageName() == null) return;
         String packageName = event.getPackageName().toString();
-        if (packageName.equals("com.android.systemui")) return;
+
+        if (SYSTEM_UI.equals(packageName)) {
+            if (automationRunning.get()) {
+                handler.post(() -> findAndClickAirplaneTile(isAirplaneTargetOn()));
+            }
+            return;
+        }
+
+        if (automationRunning.get() || suppressSystemUiExit) return;
 
         Set<String> protectedApps = getProtectedApps();
         if (protectedApps.isEmpty()) {
@@ -65,14 +75,14 @@ public class AirLockAccessibilityService extends AccessibilityService {
             if (activeProtectedPackage == null || !activeProtectedPackage.equals(packageName)) {
                 enterProtectedSession(packageName);
             }
-        } else if (activeProtectedPackage != null && !suppressSystemUiExit) {
+        } else if (activeProtectedPackage != null) {
             exitProtectedSession();
         }
     }
 
     @Override
     public void onInterrupt() {
-        // Keep state intact; Android may briefly interrupt accessibility events.
+        // Keep the current session state; transient accessibility interruptions are normal.
     }
 
     private Set<String> getProtectedApps() {
@@ -92,7 +102,6 @@ public class AirLockAccessibilityService extends AccessibilityService {
     }
 
     private void exitProtectedSession() {
-        String packageName = activeProtectedPackage;
         activeProtectedPackage = null;
         if (airplaneBeforeSession == null) return;
 
@@ -114,14 +123,20 @@ public class AirLockAccessibilityService extends AccessibilityService {
         }
     }
 
+    private boolean isAirplaneTargetOn() {
+        if (airplaneBeforeSession != null && activeProtectedPackage != null) {
+            return !Boolean.TRUE.equals(airplaneBeforeSession);
+        }
+        return isAirplaneModeOn();
+    }
+
     private void toggleAirplaneThroughQuickSettings(boolean enabled) {
-        if (automationRunning.getAndSet(true)) return;
+        if (!automationRunning.compareAndSet(false, true)) return;
         suppressSystemUiExit = true;
-        showNotification(enabled ? "✈ Uçak modu açılıyor…" : "Uçak modu kapatılıyor…");
+        toggleAttempts = 0;
+        showNotification(enabled ? "✈ Uçak modu açılıyor…" : "✈ Uçak modu kapatılıyor…");
         if (!performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)) {
-            automationRunning.set(false);
-            suppressSystemUiExit = false;
-            showNotification("⚠ Quick Settings açılamadı");
+            finishAutomation("⚠ Quick Settings açılamadı");
             return;
         }
         handler.postDelayed(() -> findAndClickAirplaneTile(enabled), TOGGLE_DELAY_MS);
@@ -149,24 +164,16 @@ public class AirLockAccessibilityService extends AccessibilityService {
 
     private AccessibilityNodeInfo findAirplaneNode(AccessibilityNodeInfo root) {
         if (root == null) return null;
-        String[] tokens = {"airplane", "flight mode", "uçak", "uçuş modu", "uçak modu"};
         java.util.ArrayDeque<AccessibilityNodeInfo> queue = new java.util.ArrayDeque<>();
         queue.add(root);
         while (!queue.isEmpty()) {
             AccessibilityNodeInfo node = queue.removeFirst();
-            String text = node.getText() == null ? "" : node.getText().toString().toLowerCase(java.util.Locale.ROOT);
-            String desc = node.getContentDescription() == null ? "" : node.getContentDescription().toString().toLowerCase(java.util.Locale.ROOT);
-            String resource = node.getViewIdResourceName() == null ? "" : node.getViewIdResourceName().toLowerCase(java.util.Locale.ROOT);
-            boolean match = false;
-            for (String token : tokens) {
-                if (text.contains(token) || desc.contains(token) || resource.contains(token.replace(" ", "_"))) {
-                    match = true;
-                    break;
-                }
-            }
-            if (match && (node.isClickable() || node.isCheckable())) {
-                return node;
-            }
+            String text = node.getText() == null ? "" : node.getText().toString().toLowerCase(Locale.ROOT);
+            String desc = node.getContentDescription() == null ? "" : node.getContentDescription().toString().toLowerCase(Locale.ROOT);
+            String resource = node.getViewIdResourceName() == null ? "" : node.getViewIdResourceName().toLowerCase(Locale.ROOT);
+            boolean match = containsAirplaneToken(text) || containsAirplaneToken(desc) || containsAirplaneToken(resource);
+            if (match && (node.isClickable() || node.isCheckable())) return node;
+
             for (int i = 0; i < node.getChildCount(); i++) {
                 AccessibilityNodeInfo child = node.getChild(i);
                 if (child != null) queue.addLast(child);
@@ -175,17 +182,24 @@ public class AirLockAccessibilityService extends AccessibilityService {
         return null;
     }
 
+    private boolean containsAirplaneToken(String value) {
+        return value.contains("airplane")
+                || value.contains("flight mode")
+                || value.contains("airplanemode")
+                || value.contains("airplane_mode")
+                || value.contains("uçak")
+                || value.contains("uçuş modu")
+                || value.contains("uçak modu");
+    }
+
     private void verifyAirplaneState(boolean enabled) {
         boolean actual = isAirplaneModeOn();
         if (actual != enabled) {
-            automationRunning.set(false);
-            suppressSystemUiExit = false;
             if (++toggleAttempts < MAX_TOGGLE_ATTEMPTS) {
-                handler.postDelayed(() -> toggleAirplaneThroughQuickSettings(enabled), TOGGLE_DELAY_MS);
+                handler.postDelayed(() -> findAndClickAirplaneTile(enabled), TOGGLE_DELAY_MS);
                 return;
             }
-            showNotification("⚠ Uçak modu değiştirilemedi");
-            if (!enabled) activeProtectedPackage = null;
+            finishAutomation("⚠ Uçak modu değiştirilemedi");
             return;
         }
         finishAutomation(enabled ? "✈ Uçak modu açık" : "AirLock izliyor • uçak modu kapalı");
@@ -232,7 +246,10 @@ public class AirLockAccessibilityService extends AccessibilityService {
     @Override
     public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
-        if (activeProtectedPackage != null) exitProtectedSession();
+        activeProtectedPackage = null;
+        airplaneBeforeSession = null;
+        automationRunning.set(false);
+        suppressSystemUiExit = false;
         super.onDestroy();
     }
 }
